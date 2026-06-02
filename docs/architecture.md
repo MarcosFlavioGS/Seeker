@@ -7,98 +7,96 @@ Seeker is a Phoenix 1.8 LiveView application. It has no local database of its ow
 ```
 Browser ──LiveView WebSocket──▶ Phoenix App ──Ecto/Postgrex──▶ Remote PostgreSQL
                                      │
-                                 .env file
-                              (credentials)
+                              priv/local/            .env
+                           (org + query JSON)    (credentials)
 ```
 
 ## Layers
 
-### 1. Configuration (`config/runtime.exs`)
+### 1. Local configuration (`priv/local/`)
 
-All database credentials are loaded at startup from `.env` using [Dotenvy](https://hexdocs.pm/dotenvy). `runtime.exs` is evaluated after compilation and before the application starts, making it the correct place for secrets. Environment variables in the shell always override values in `.env`.
+All user-specific data lives in `priv/local/`, which is gitignored. There are two subdirectories:
 
-### 2. Organization repos (`lib/seeker/organizations/`)
+- **`organizations/<slug>.json`** — defines an organization: display name, environment names, and database connection parameters. Values can be literal strings/integers or `"$ENV_VAR_NAME"` references that are resolved at startup.
+- **`queries/<slug>.json`** — all queries for that organization, as a JSON array. This file is read at startup and written back whenever a query is created, edited, or deleted via the UI.
 
-Each organization (e.g. Just Travel) has its own subdirectory containing:
+`priv/local.example/` (committed) contains reference files showing the expected format.
+
+### 2. `LocalConfig` (`lib/seeker/local_config.ex`)
+
+Pure functions that read and write `priv/local/`. Called once at application start to load organizations, and on every query mutation to persist changes.
+
+- `load_orgs/0` — scans `organizations/*.json`, resolves `$VAR` references via `System.get_env/1`, returns a map keyed by slug string.
+- `load_queries/1` — reads `queries/<slug>.json`, returns a list of query maps with atom keys.
+- `save_queries/2` — serializes and writes the query list back to disk.
+
+### 3. `OrgRegistry` (`lib/seeker/org_registry.ex`)
+
+A thin wrapper around `:persistent_term`. Called once during `Application.start/2` with the map from `LocalConfig.load_orgs/0`, then read-only for the rest of the app's life. Keys are slug strings (e.g. `"just_travel"`); repo names are atoms (e.g. `:"seeker_repo_just_travel_prod"`).
+
+### 4. `DynamicRepo` (`lib/seeker/dynamic_repo.ex`)
+
+A single `Ecto.Repo` module started once per org/env combination with a unique process name:
 
 ```
-just_travel/
-  prod_repo.ex    ← Ecto.Repo pointing to the production DB
-  homo_repo.ex    ← Ecto.Repo pointing to the homologation DB
-  queries.ex      ← aggregates all context modules; exposes run_sql/2
-  contexts/
-    mobility.ex   ← predefined queries for the Mobility team
-    insurances.ex ← predefined queries for the Insurances team
+Seeker.DynamicRepo (name: :"seeker_repo_just_travel_prod", hostname: "...", ...)
+Seeker.DynamicRepo (name: :"seeker_repo_just_travel_homo", hostname: "...", ...)
 ```
 
-Each `*_repo.ex` is a standard `Ecto.Repo` backed by `Ecto.Adapters.Postgres`. Queries are executed as raw SQL via `Ecto.Adapters.SQL.query/4` — no schemas, no changesets, no migrations.
+All repo instances share one module (for adapter metadata) but run as separate processes with separate DBConnection pools. To target a specific instance, call `DynamicRepo.put_dynamic_repo(repo_name)` before querying — this sets process-local state that Ecto reads for the next call. Each query runs in its own process (via `start_async/3` or `spawn_monitor`), so concurrent queries never interfere.
 
-Pool size is intentionally small (2 connections per repo) because Seeker is a single-user tool.
+### 5. `QueryStore` (`lib/seeker/query_store.ex`)
 
-### 3. `RepoRegistry` (`lib/seeker/repo_registry.ex`)
+A `GenServer` that owns all query definitions in memory. It loads queries from disk on startup and updates the JSON file on every mutation. After any change it broadcasts `{:queries_updated, org_slug}` via PubSub so all connected LiveViews refresh their sidebars immediately without a page reload.
 
-A compile-time map that links URL-friendly names to the actual Elixir modules:
+### 6. `SQLRunner` (`lib/seeker/sql_runner.ex`)
 
-```elixir
-%{
-  just_travel: %{
-    display: "Just Travel",
-    environments: %{
-      prod: %{repo: Seeker.JustTravel.ProdRepo, queries_module: Seeker.JustTravel.Queries},
-      homo: %{repo: Seeker.JustTravel.HomoRepo, queries_module: Seeker.JustTravel.Queries}
-    }
-  }
-}
-```
+A single function `run_sql(repo_name, sql)` that sets the dynamic repo, executes the SQL, and normalizes the result into a `%QueryResult{}`. Errors are classified into `:connection`, `:db_error`, or `:unknown`.
 
-The LiveView uses `RepoRegistry.get(org, env)` to resolve the correct repo and queries module from URL parameters without dynamic atom creation beyond `String.to_existing_atom/1`.
-
-### 4. `ConnectionMonitor` (`lib/seeker/connection_monitor.ex`)
+### 7. `ConnectionMonitor` (`lib/seeker/connection_monitor.ex`)
 
 A `GenServer` that pings all registered repos with `SELECT 1` every 30 seconds. On each check it:
 
-1. Runs the ping with a 5-second timeout
+1. Runs the ping in isolation (using `put_dynamic_repo` + a `try/rescue/catch` block to handle pool unavailability)
 2. Classifies the result: `:connected`, `{:error, :vpn_down}`, `{:error, :bad_credentials}`, `{:error, :unknown}`
 3. Broadcasts the new status via `Phoenix.PubSub` on the `"conn_status"` topic
 
-This means the LiveView never polls — it just subscribes on mount and receives push updates.
+This means the LiveView never polls — it subscribes on mount and receives push updates.
 
-### 5. `QueryLive` (`lib/seeker_web/live/query_live.ex`)
+### 8. `QueryLive` (`lib/seeker_web/live/query_live.ex`)
 
 The single LiveView that powers the entire UI. Route: `/orgs/:org/:env`.
 
 **Mount flow:**
-1. Resolve `org` and `env` atoms from URL params using `String.to_existing_atom/1`
-2. Look up the registry entry
-3. Subscribe to `"conn_status"` PubSub topic
-4. Build `grouped_queries` by grouping the query list by `:context`
-5. Query the ConnectionMonitor for each env's current status
+1. Look up org and env by string slug from `OrgRegistry`
+2. Subscribe to `"conn_status"` and `"queries:<org>"` PubSub topics
+3. Load grouped queries from `QueryStore`
+4. Query `ConnectionMonitor` for each env's current status
 
 **Query execution:**
 SQL runs inside `start_async/3` so a slow or hanging query does not block the LiveView process. Results arrive as `handle_async/3` callbacks.
 
-**Error classification** (in `queries.ex`):
+**Query CRUD:**
+A modal form in the sidebar lets users create, edit, and delete queries. Events go to `QueryStore`, which persists the change and broadcasts `:queries_updated` — the LiveView receives this via PubSub and refreshes the sidebar without a full reload.
 
-| Postgrex error | User-facing label |
-|---|---|
-| `DBConnection.ConnectionError` | Connection error — VPN likely down |
-| `Postgrex.Error` | Database error — SQL problem |
-| Other | Unknown error |
-
-### 6. Supervision tree
+### 9. Supervision tree
 
 ```
 Seeker.Supervisor (one_for_one)
   ├── SeekerWeb.Telemetry
-  ├── Seeker.JustTravel.ProdRepo     ← DBConnection pool, auto-reconnects
-  ├── Seeker.JustTravel.HomoRepo
+  ├── Seeker.DynamicRepo (name: :seeker_repo_just_travel_prod)
+  ├── Seeker.DynamicRepo (name: :seeker_repo_just_travel_homo)
+  ├── ... (one entry per org/env loaded from priv/local/)
   ├── DNSCluster
   ├── Phoenix.PubSub
-  ├── Seeker.ConnectionMonitor       ← must start after PubSub and repos
+  ├── Seeker.QueryStore          ← must start after PubSub and OrgRegistry
+  ├── Seeker.ConnectionMonitor   ← must start after PubSub and all repos
   └── SeekerWeb.Endpoint
 ```
 
-`DBConnection` (used internally by Postgrex) retries failed connections with exponential backoff. If the VPN is down at startup, the repos start but have no live connections — they reconnect automatically when the VPN comes up. The `ConnectionMonitor` reflects this in the UI.
+The repo children are built dynamically in `Application.start/2` from `LocalConfig.load_orgs()`. Adding a new organization JSON file and restarting is all that's needed — no code changes.
+
+`DBConnection` retries failed connections with exponential backoff. If the VPN is down at startup, the repos start but have no live connections — they reconnect automatically when the VPN comes up.
 
 ## Data flow: running a query
 
@@ -110,11 +108,12 @@ handle_event("run_query", %{"sql" => sql}, socket)
         │  assigns running: true
         │
         ▼
-start_async(socket, :run_query, fn -> queries_module.run_sql(repo, sql) end)
+start_async(socket, :run_query, fn -> SQLRunner.run_sql(repo_name, sql) end)
         │  spawns a linked task
         │
         ▼
-Ecto.Adapters.SQL.query(repo, sql, [], timeout: 30_000)
+DynamicRepo.put_dynamic_repo(repo_name)
+DynamicRepo.query(sql, [], timeout: 30_000)
         │  runs in the async task
         │
         ▼
@@ -125,16 +124,44 @@ handle_async(:run_query, {:ok, result}, socket)
 Template re-renders the results table
 ```
 
+## Data flow: creating a query via the UI
+
+```
+User fills form and clicks "Create Query"
+        │
+        ▼
+handle_event("save_query", params, socket)
+        │
+        ▼
+QueryStore.create(org_slug, params)
+        │  validates, appends to in-memory list
+        │  writes priv/local/queries/<slug>.json
+        │  broadcasts {:queries_updated, org_slug} via PubSub
+        │
+        ▼
+handle_info({:queries_updated, _}, socket)  ← received by all connected LiveViews
+        │  reloads grouped_queries from QueryStore
+        │
+        ▼
+Sidebar re-renders with new query visible
+```
+
 ## Key design decisions
 
-**Why Phoenix LiveView instead of plain Mix/IEx?**
-Query results are tabular data. LiveView renders them as HTML tables, shows live connection badges, and lets you click predefined queries — none of which are possible in IEx.
+**Why `priv/local/` instead of compiled Elixir modules?**
+Each developer or team can have their own organizations and queries without creating commits. The JSON files are never tracked by git, so cloning the repo gives a clean slate that each user populates for their own environment.
 
-**Why Ecto.Repo instead of raw Postgrex?**
-`Ecto.Repo` wraps DBConnection, which handles connection pooling, retry/reconnect, and checkout timeouts. Raw `Postgrex.start_link` would require manual process management.
+**Why a single `DynamicRepo` module?**
+Per-org Ecto.Repo modules require code changes (and recompilation) to add an org. A single module started with different named processes keeps all configuration at runtime — adding an org is a file drop and a restart.
 
-**Why `String.to_existing_atom/1` for URL params?**
-`:org` and `:env` come from the URL. Using `String.to_atom/1` on untrusted input can exhaust the atom table. `to_existing_atom` only succeeds for atoms already defined in the registry, acting as implicit validation.
+**Why `put_dynamic_repo/1` instead of passing the repo to every call?**
+Ecto's dynamic repo API is the idiomatic way to target named instances of the same module. `put_dynamic_repo` sets process-local state, which is safe here because each query runs in its own process (`start_async` task or `spawn_monitor`).
 
-**Why no local database?**
-Seeker queries remote databases; it has no data of its own to persist. Removing the local DB removes the need to run `mix ecto.create`, avoids accidental `mix ecto.migrate` runs, and simplifies setup.
+**Why `QueryStore` instead of reading the JSON file on every request?**
+Reading from disk on each query list request adds latency and I/O. Holding the list in a GenServer keeps reads instant and makes real-time sidebar updates (via PubSub) straightforward.
+
+**Why no local database for query persistence?**
+Seeker has no data of its own beyond the query definitions, which are simple JSON. A SQLite or Postgres setup would add setup friction (migrations, credentials, schema) for no benefit over plain files.
+
+**Why string keys for org slugs and query keys?**
+Org slugs come from filenames; query keys are user-defined strings. Using atoms would require either pre-declaring them (impossible for user-defined queries) or using `String.to_atom/1` on untrusted input (atom table exhaustion risk). Strings are safe and straightforward.
