@@ -112,10 +112,11 @@ defmodule SeekerWeb.QueryLive do
   @impl true
   def handle_info({:conn_status, repo, status}, socket) do
     updated =
-      Enum.reduce(socket.assigns.org_info.environments, socket.assigns.conn_statuses,
-        fn {env_key, env_data}, acc ->
-          if env_data.repo == repo, do: Map.put(acc, env_key, status), else: acc
-        end)
+      Enum.reduce(socket.assigns.org_info.environments, socket.assigns.conn_statuses, fn {env_key,
+                                                                                          env_data},
+                                                                                         acc ->
+        if env_data.repo == repo, do: Map.put(acc, env_key, status), else: acc
+      end)
 
     {:noreply, assign(socket, :conn_statuses, updated)}
   end
@@ -134,6 +135,7 @@ defmodule SeekerWeb.QueryLive do
 
   defp build_conn_statuses(org) do
     org_info = RepoRegistry.get_org(org)
+
     Map.new(org_info.environments, fn {env_key, env_data} ->
       {env_key, ConnectionMonitor.status(env_data.repo)}
     end)

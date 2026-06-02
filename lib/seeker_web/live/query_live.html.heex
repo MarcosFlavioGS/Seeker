@@ -5,7 +5,7 @@
       <.icon name="hero-chevron-left" class="size-4" /> Organizations
     </.link>
 
-    <h1 class="text-xl font-bold"><%= @org_info.display %></h1>
+    <h1 class="text-xl font-bold">{@org_info.display}</h1>
 
     <div role="tablist" class="tabs tabs-bordered">
       <%= for {env_key, env_data} <- @org_info.environments do %>
@@ -14,9 +14,9 @@
           role="tab"
           class={["tab gap-2", if(@env == env_key, do: "tab-active font-semibold", else: "")]}
         >
-          <%= env_data.display %>
+          {env_data.display}
           <span class={["badge badge-sm", badge_class(Map.get(@conn_statuses, env_key, :unknown))]}>
-            <%= badge_text(Map.get(@conn_statuses, env_key, :unknown)) %>
+            {badge_text(Map.get(@conn_statuses, env_key, :unknown))}
           </span>
         </.link>
       <% end %>
@@ -31,7 +31,7 @@
         <div class="card-body p-3">
           <%= for {context, queries} <- @grouped_queries do %>
             <p class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mt-3 mb-1 first:mt-0 px-1">
-              <%= context %>
+              {context}
             </p>
             <div class="flex flex-col gap-0.5">
               <button
@@ -43,7 +43,7 @@
                   if(@active_query_key == query.key, do: "btn-active", else: "")
                 ]}
               >
-                <%= query.name %>
+                {query.name}
               </button>
             </div>
           <% end %>
@@ -74,13 +74,18 @@
                 <% end %>
               </button>
 
-              <button type="button" phx-click="clear" class="btn btn-ghost btn-sm" disabled={@running}>
+              <button
+                type="button"
+                phx-click="clear"
+                class="btn btn-ghost btn-sm"
+                disabled={@running}
+              >
                 Clear
               </button>
 
               <%= if @result do %>
                 <span class="text-sm text-base-content/50 ml-auto">
-                  <%= result_meta(@result) %>
+                  {result_meta(@result)}
                 </span>
               <% end %>
             </div>
@@ -95,12 +100,11 @@
             <%= case @result do %>
               <% {:ok, result} when result.num_rows == 0 -> %>
                 <p class="text-sm text-base-content/50">Query returned no rows.</p>
-
               <% {:ok, result} -> %>
                 <%!-- Results toolbar --%>
                 <div class="flex items-center justify-between mb-3">
                   <span class="text-xs text-base-content/50">
-                    <%= result.num_rows %> <%= if result.num_rows == 1, do: "row", else: "rows" %>
+                    {result.num_rows} {if result.num_rows == 1, do: "row", else: "rows"}
                   </span>
                   <button
                     phx-click="copy_json"
@@ -110,8 +114,7 @@
                       <.icon name="hero-check" class="size-3.5 text-success" />
                       <span class="text-success">Copied!</span>
                     <% else %>
-                      <.icon name="hero-clipboard-document" class="size-3.5" />
-                      Copy as JSON
+                      <.icon name="hero-clipboard-document" class="size-3.5" /> Copy as JSON
                     <% end %>
                   </button>
                 </div>
@@ -121,26 +124,25 @@
                     <thead>
                       <tr>
                         <th :for={col <- result.columns} class="whitespace-nowrap">
-                          <%= col %>
+                          {col}
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr :for={row <- result.rows}>
                         <td :for={cell <- row} class="font-mono text-xs max-w-xs truncate">
-                          <%= format_cell(cell) %>
+                          {format_cell(cell)}
                         </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
-
               <% {:error, {kind, msg}} -> %>
                 <div class="alert alert-error items-start">
                   <.icon name="hero-exclamation-circle" class="size-5 shrink-0 mt-0.5" />
                   <div>
-                    <p class="font-semibold"><%= error_kind_label(kind) %></p>
-                    <p class="font-mono text-sm mt-1 whitespace-pre-wrap"><%= msg %></p>
+                    <p class="font-semibold">{error_kind_label(kind)}</p>
+                    <p class="font-mono text-sm mt-1 whitespace-pre-wrap">{msg}</p>
                   </div>
                 </div>
             <% end %>

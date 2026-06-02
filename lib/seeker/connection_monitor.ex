@@ -58,6 +58,9 @@ defmodule Seeker.ConnectionMonitor do
   end
 
   defp classify(%DBConnection.ConnectionError{}), do: :vpn_down
-  defp classify(%Postgrex.Error{postgres: %{code: :invalid_authorization_specification}}), do: :bad_credentials
+
+  defp classify(%Postgrex.Error{postgres: %{code: :invalid_authorization_specification}}),
+    do: :bad_credentials
+
   defp classify(_), do: :unknown
 end

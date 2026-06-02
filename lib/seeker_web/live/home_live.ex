@@ -18,7 +18,8 @@ defmodule SeekerWeb.HomeLive do
 
   @impl true
   def handle_info({:conn_status, repo, status}, socket) do
-    {:noreply, assign(socket, :conn_statuses, Map.put(socket.assigns.conn_statuses, repo, status))}
+    {:noreply,
+     assign(socket, :conn_statuses, Map.put(socket.assigns.conn_statuses, repo, status))}
   end
 
   defp build_all_statuses do
@@ -40,16 +41,19 @@ defmodule SeekerWeb.HomeLive do
           class="card bg-base-200 shadow hover:shadow-md transition-shadow"
         >
           <div class="card-body p-6">
-            <h2 class="card-title text-lg mb-4"><%= org_info.display %></h2>
+            <h2 class="card-title text-lg mb-4">{org_info.display}</h2>
             <div class="flex flex-col gap-2">
               <.link
                 :for={{env_key, env_data} <- org_info.environments}
                 navigate={~p"/orgs/#{org_key}/#{env_key}"}
                 class="flex items-center justify-between btn btn-ghost btn-sm w-full normal-case"
               >
-                <span><%= env_data.display %></span>
-                <span class={["badge badge-sm", badge_class(Map.get(@conn_statuses, env_data.repo, :unknown))]}>
-                  <%= badge_text(Map.get(@conn_statuses, env_data.repo, :unknown)) %>
+                <span>{env_data.display}</span>
+                <span class={[
+                  "badge badge-sm",
+                  badge_class(Map.get(@conn_statuses, env_data.repo, :unknown))
+                ]}>
+                  {badge_text(Map.get(@conn_statuses, env_data.repo, :unknown))}
                 </span>
               </.link>
             </div>

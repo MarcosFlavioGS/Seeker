@@ -34,14 +34,15 @@ It is designed to be:
 ## Requirements
 
 - Elixir 1.19+ / Erlang 28+ (see `.tool-versions`)
+- [just](https://github.com/casey/just) (task runner)
 - The target database must be reachable (VPN, firewall, etc.)
 - A `.env` file with your connection credentials (see [Configuration](docs/configuration.md))
 
 ## Quick start
 
 ```bash
-# 1. Install dependencies
-mix deps.get
+# 1. Install dependencies and set up assets
+just setup
 
 # 2. Copy the example env file and fill in your credentials
 cp .env.example .env
@@ -50,7 +51,7 @@ cp .env.example .env
 # 3. Connect the VPN (if required by your database)
 
 # 4. Start the server
-mix phx.server
+just run
 ```
 
 Open [http://localhost:4000](http://localhost:4000). It redirects to `/orgs/just_travel/prod`.
@@ -58,7 +59,7 @@ Open [http://localhost:4000](http://localhost:4000). It redirects to `/orgs/just
 You can also open an IEx session alongside the server:
 
 ```bash
-iex -S mix phx.server
+just iex
 ```
 
 ## Environment variables
