@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="priv/static/images/seeker-logo.png" width="200" alt="Seeker logo — a tamanduá"/>
+  <img src="priv/static/images/seeker-logo.png" width="800" alt="Seeker logo — a tamanduá"/>
 </p>
 
 <h1 align="center">Seeker</h1>
