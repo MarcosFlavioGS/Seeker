@@ -1,6 +1,10 @@
 <div class="p-4 space-y-4">
   <%!-- Org header + environment tabs --%>
   <div class="flex flex-wrap items-center gap-4">
+    <.link navigate={~p"/"} class="btn btn-ghost btn-sm gap-1 -ml-2">
+      <.icon name="hero-chevron-left" class="size-4" /> Organizations
+    </.link>
+
     <h1 class="text-xl font-bold"><%= @org_info.display %></h1>
 
     <div role="tablist" class="tabs tabs-bordered">
@@ -11,8 +15,8 @@
           class={["tab gap-2", if(@env == env_key, do: "tab-active font-semibold", else: "")]}
         >
           <%= env_data.display %>
-          <span class={["badge badge-sm", conn_badge_class(Map.get(@conn_statuses, env_key, :unknown))]}>
-            <%= conn_badge_text(Map.get(@conn_statuses, env_key, :unknown)) %>
+          <span class={["badge badge-sm", badge_class(Map.get(@conn_statuses, env_key, :unknown))]}>
+            <%= badge_text(Map.get(@conn_statuses, env_key, :unknown)) %>
           </span>
         </.link>
       <% end %>
@@ -62,11 +66,7 @@
             ><%= @sql %></textarea>
 
             <div class="flex flex-wrap items-center gap-3 mt-3">
-              <button
-                type="submit"
-                class="btn btn-primary btn-sm"
-                disabled={@running}
-              >
+              <button type="submit" class="btn btn-primary btn-sm" disabled={@running}>
                 <%= if @running do %>
                   <span class="loading loading-spinner loading-xs"></span> Running...
                 <% else %>
@@ -74,12 +74,7 @@
                 <% end %>
               </button>
 
-              <button
-                type="button"
-                phx-click="clear"
-                class="btn btn-ghost btn-sm"
-                disabled={@running}
-              >
+              <button type="button" phx-click="clear" class="btn btn-ghost btn-sm" disabled={@running}>
                 Clear
               </button>
 
@@ -102,6 +97,25 @@
                 <p class="text-sm text-base-content/50">Query returned no rows.</p>
 
               <% {:ok, result} -> %>
+                <%!-- Results toolbar --%>
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-xs text-base-content/50">
+                    <%= result.num_rows %> <%= if result.num_rows == 1, do: "row", else: "rows" %>
+                  </span>
+                  <button
+                    phx-click="copy_json"
+                    class="btn btn-xs btn-ghost gap-1.5"
+                  >
+                    <%= if @copied do %>
+                      <.icon name="hero-check" class="size-3.5 text-success" />
+                      <span class="text-success">Copied!</span>
+                    <% else %>
+                      <.icon name="hero-clipboard-document" class="size-3.5" />
+                      Copy as JSON
+                    <% end %>
+                  </button>
+                </div>
+
                 <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
                   <table class="table table-xs table-zebra table-pin-rows">
                     <thead>

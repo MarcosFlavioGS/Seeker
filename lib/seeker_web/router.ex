@@ -17,9 +17,7 @@ defmodule SeekerWeb.Router do
   scope "/", SeekerWeb do
     pipe_through :browser
 
-    # Redirect root to the default org/env
-    get "/", PageController, :home
-
+    live "/", HomeLive
     live "/orgs/:org/:env", QueryLive
   end
 end

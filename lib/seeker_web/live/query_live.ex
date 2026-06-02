@@ -12,13 +12,11 @@ defmodule SeekerWeb.QueryLive do
     entry = RepoRegistry.get(org, env)
 
     if is_nil(entry) do
-      {:ok, push_navigate(socket, to: ~p"/orgs/just_travel/prod")}
+      {:ok, push_navigate(socket, to: ~p"/")}
     else
       if connected?(socket) do
         Phoenix.PubSub.subscribe(Seeker.PubSub, "conn_status")
       end
-
-      conn_statuses = build_conn_statuses(org)
 
       socket =
         socket
@@ -31,7 +29,8 @@ defmodule SeekerWeb.QueryLive do
         |> assign(:active_query_key, nil)
         |> assign(:result, nil)
         |> assign(:running, false)
-        |> assign(:conn_statuses, conn_statuses)
+        |> assign(:copied, false)
+        |> assign(:conn_statuses, build_conn_statuses(org))
         |> assign(:page_title, "#{org_info.display} · Seeker")
 
       {:ok, socket}
@@ -52,6 +51,7 @@ defmodule SeekerWeb.QueryLive do
       |> assign(:grouped_queries, group_queries(entry.queries_module.list_queries()))
       |> assign(:result, nil)
       |> assign(:running, false)
+      |> assign(:copied, false)
 
     {:noreply, socket}
   end
@@ -61,11 +61,8 @@ defmodule SeekerWeb.QueryLive do
     key = String.to_existing_atom(key_str)
 
     case socket.assigns.entry.queries_module.get_sql(key) do
-      {:ok, sql} ->
-        {:noreply, assign(socket, sql: sql, active_query_key: key, result: nil)}
-
-      {:error, _} ->
-        {:noreply, socket}
+      {:ok, sql} -> {:noreply, assign(socket, sql: sql, active_query_key: key, result: nil)}
+      {:error, _} -> {:noreply, socket}
     end
   end
 
@@ -75,7 +72,7 @@ defmodule SeekerWeb.QueryLive do
     if sql == "" do
       {:noreply, socket}
     else
-      socket = assign(socket, :running, true)
+      socket = assign(socket, running: true, copied: false)
       %{queries_module: qmod, repo: repo} = socket.assigns.entry
 
       {:noreply,
@@ -86,7 +83,17 @@ defmodule SeekerWeb.QueryLive do
   end
 
   def handle_event("clear", _params, socket) do
-    {:noreply, assign(socket, sql: "", result: nil, active_query_key: nil)}
+    {:noreply, assign(socket, sql: "", result: nil, active_query_key: nil, copied: false)}
+  end
+
+  def handle_event("copy_json", _params, socket) do
+    json = encode_result_as_json(socket.assigns.result)
+    Process.send_after(self(), :clear_copied, 2000)
+
+    {:noreply,
+     socket
+     |> assign(:copied, true)
+     |> push_event("copy-to-clipboard", %{text: json})}
   end
 
   @impl true
@@ -104,17 +111,20 @@ defmodule SeekerWeb.QueryLive do
 
   @impl true
   def handle_info({:conn_status, repo, status}, socket) do
-    org_envs = socket.assigns.org_info.environments
-
     updated =
-      Enum.reduce(org_envs, socket.assigns.conn_statuses, fn {env_key, env_data}, acc ->
-        if env_data.repo == repo, do: Map.put(acc, env_key, status), else: acc
-      end)
+      Enum.reduce(socket.assigns.org_info.environments, socket.assigns.conn_statuses,
+        fn {env_key, env_data}, acc ->
+          if env_data.repo == repo, do: Map.put(acc, env_key, status), else: acc
+        end)
 
     {:noreply, assign(socket, :conn_statuses, updated)}
   end
 
-  # ── Private helpers ────────────────────────────────────────────────────────
+  def handle_info(:clear_copied, socket) do
+    {:noreply, assign(socket, :copied, false)}
+  end
+
+  # ── Private ────────────────────────────────────────────────────────────────
 
   defp group_queries(queries) do
     queries
@@ -124,24 +134,31 @@ defmodule SeekerWeb.QueryLive do
 
   defp build_conn_statuses(org) do
     org_info = RepoRegistry.get_org(org)
-
     Map.new(org_info.environments, fn {env_key, env_data} ->
       {env_key, ConnectionMonitor.status(env_data.repo)}
     end)
   end
 
-  # ── Component helpers (used in template) ──────────────────────────────────
+  defp encode_result_as_json({:ok, %QueryResult{columns: cols, rows: rows}}) do
+    rows
+    |> Enum.map(fn row ->
+      cols
+      |> Enum.zip(row)
+      |> Map.new(fn {col, val} -> {col, prepare_for_json(val)} end)
+    end)
+    |> Jason.encode!(pretty: true)
+  end
 
-  def conn_badge_class(:connected), do: "badge-success"
-  def conn_badge_class({:error, :vpn_down}), do: "badge-error"
-  def conn_badge_class({:error, :bad_credentials}), do: "badge-warning"
-  def conn_badge_class(_), do: "badge-ghost"
+  defp encode_result_as_json(_), do: "[]"
 
-  def conn_badge_text(:connected), do: "Connected"
-  def conn_badge_text({:error, :vpn_down}), do: "VPN down"
-  def conn_badge_text({:error, :bad_credentials}), do: "Auth error"
-  def conn_badge_text(:unknown), do: "Checking..."
-  def conn_badge_text(_), do: "Unknown"
+  defp prepare_for_json(nil), do: nil
+  defp prepare_for_json(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp prepare_for_json(%NaiveDateTime{} = ndt), do: NaiveDateTime.to_iso8601(ndt)
+  defp prepare_for_json(%Date{} = d), do: Date.to_iso8601(d)
+  defp prepare_for_json(%Decimal{} = d), do: Decimal.to_string(d)
+  defp prepare_for_json(val), do: val
+
+  # ── Template helpers ───────────────────────────────────────────────────────
 
   def result_meta({:ok, %QueryResult{num_rows: n, duration_ms: ms}}) do
     "#{n} #{if n == 1, do: "row", else: "rows"} · #{ms}ms"

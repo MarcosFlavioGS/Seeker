@@ -50,6 +50,8 @@ defmodule SeekerWeb do
     quote do
       use Phoenix.LiveView
 
+      import SeekerWeb.ConnStatus
+
       unquote(html_helpers())
     end
   end
