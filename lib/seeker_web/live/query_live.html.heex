@@ -1,0 +1,138 @@
+<div class="p-4 space-y-4">
+  <%!-- Org header + environment tabs --%>
+  <div class="flex flex-wrap items-center gap-4">
+    <h1 class="text-xl font-bold"><%= @org_info.display %></h1>
+
+    <div role="tablist" class="tabs tabs-bordered">
+      <%= for {env_key, env_data} <- @org_info.environments do %>
+        <.link
+          navigate={~p"/orgs/#{@org}/#{env_key}"}
+          role="tab"
+          class={["tab gap-2", if(@env == env_key, do: "tab-active font-semibold", else: "")]}
+        >
+          <%= env_data.display %>
+          <span class={["badge badge-sm", conn_badge_class(Map.get(@conn_statuses, env_key, :unknown))]}>
+            <%= conn_badge_text(Map.get(@conn_statuses, env_key, :unknown)) %>
+          </span>
+        </.link>
+      <% end %>
+    </div>
+  </div>
+
+  <%!-- Two-column layout: sidebar + editor --%>
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
+    <%!-- Predefined queries sidebar, grouped by context --%>
+    <div class="lg:col-span-1">
+      <div class="card bg-base-200 shadow-sm">
+        <div class="card-body p-3">
+          <%= for {context, queries} <- @grouped_queries do %>
+            <p class="text-xs font-semibold uppercase tracking-wider text-base-content/50 mt-3 mb-1 first:mt-0 px-1">
+              <%= context %>
+            </p>
+            <div class="flex flex-col gap-0.5">
+              <button
+                :for={query <- queries}
+                phx-click="load_query"
+                phx-value-key={query.key}
+                class={[
+                  "btn btn-xs btn-ghost justify-start text-left normal-case h-auto min-h-0 py-1.5 px-2 leading-snug",
+                  if(@active_query_key == query.key, do: "btn-active", else: "")
+                ]}
+              >
+                <%= query.name %>
+              </button>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <%!-- SQL editor + run controls --%>
+    <div class="lg:col-span-3 space-y-4">
+      <div class="card bg-base-200 shadow-sm">
+        <div class="card-body p-4">
+          <form phx-submit="run_query" id="query-form">
+            <textarea
+              name="sql"
+              id="sql-editor"
+              rows="12"
+              class="textarea textarea-bordered w-full font-mono text-sm leading-relaxed"
+              placeholder="SELECT * FROM your_table LIMIT 100;"
+              spellcheck="false"
+            ><%= @sql %></textarea>
+
+            <div class="flex flex-wrap items-center gap-3 mt-3">
+              <button
+                type="submit"
+                class="btn btn-primary btn-sm"
+                disabled={@running}
+              >
+                <%= if @running do %>
+                  <span class="loading loading-spinner loading-xs"></span> Running...
+                <% else %>
+                  Run Query
+                <% end %>
+              </button>
+
+              <button
+                type="button"
+                phx-click="clear"
+                class="btn btn-ghost btn-sm"
+                disabled={@running}
+              >
+                Clear
+              </button>
+
+              <%= if @result do %>
+                <span class="text-sm text-base-content/50 ml-auto">
+                  <%= result_meta(@result) %>
+                </span>
+              <% end %>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Results --%>
+      <%= if @result do %>
+        <div class="card bg-base-200 shadow-sm">
+          <div class="card-body p-4">
+            <%= case @result do %>
+              <% {:ok, result} when result.num_rows == 0 -> %>
+                <p class="text-sm text-base-content/50">Query returned no rows.</p>
+
+              <% {:ok, result} -> %>
+                <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
+                  <table class="table table-xs table-zebra table-pin-rows">
+                    <thead>
+                      <tr>
+                        <th :for={col <- result.columns} class="whitespace-nowrap">
+                          <%= col %>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr :for={row <- result.rows}>
+                        <td :for={cell <- row} class="font-mono text-xs max-w-xs truncate">
+                          <%= format_cell(cell) %>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+              <% {:error, {kind, msg}} -> %>
+                <div class="alert alert-error items-start">
+                  <.icon name="hero-exclamation-circle" class="size-5 shrink-0 mt-0.5" />
+                  <div>
+                    <p class="font-semibold"><%= error_kind_label(kind) %></p>
+                    <p class="font-mono text-sm mt-1 whitespace-pre-wrap"><%= msg %></p>
+                  </div>
+                </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>
