@@ -6,7 +6,7 @@ defmodule Seeker.ConnectionMonitor do
 
   use GenServer
 
-  alias Seeker.RepoRegistry
+  alias Seeker.{DynamicRepo, OrgRegistry}
 
   @check_interval 30_000
   @ping_timeout 5_000
@@ -23,7 +23,7 @@ defmodule Seeker.ConnectionMonitor do
 
   @impl true
   def init(_) do
-    state = Map.new(RepoRegistry.all_repos(), fn repo -> {repo, :unknown} end)
+    state = Map.new(OrgRegistry.all_repos(), fn repo -> {repo, :unknown} end)
     send(self(), :check)
     {:ok, state}
   end
@@ -49,12 +49,18 @@ defmodule Seeker.ConnectionMonitor do
   # ── Private ────────────────────────────────────────────────────────────────
 
   defp ping(repo) do
-    case Ecto.Adapters.SQL.query(repo, "SELECT 1", [], timeout: @ping_timeout) do
-      {:ok, _} -> :connected
-      {:error, reason} -> {:error, classify(reason)}
+    DynamicRepo.put_dynamic_repo(repo)
+
+    try do
+      case DynamicRepo.query("SELECT 1", [], timeout: @ping_timeout) do
+        {:ok, _} -> :connected
+        {:error, reason} -> {:error, classify(reason)}
+      end
+    rescue
+      _ -> {:error, :unknown}
+    catch
+      :exit, _ -> {:error, :unknown}
     end
-  rescue
-    _ -> {:error, :unknown}
   end
 
   defp classify(%DBConnection.ConnectionError{}), do: :vpn_down

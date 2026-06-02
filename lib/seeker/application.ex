@@ -5,20 +5,29 @@ defmodule Seeker.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      SeekerWeb.Telemetry,
-      # Just Travel repos — DBConnection retries in the background if VPN is down at startup
-      Seeker.JustTravel.ProdRepo,
-      Seeker.JustTravel.HomoRepo,
-      # Add new org repos here:
-      # Seeker.Acme.ProdRepo,
-      # Seeker.Acme.HomoRepo,
-      {DNSCluster, query: Application.get_env(:seeker, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: Seeker.PubSub},
-      # Must start after PubSub and all repos
-      Seeker.ConnectionMonitor,
-      SeekerWeb.Endpoint
-    ]
+    orgs = Seeker.LocalConfig.load_orgs()
+    Seeker.OrgRegistry.setup(orgs)
+
+    repo_children =
+      for {slug, org} <- orgs,
+          {env_key, env_config} <- org.environments do
+        Supervisor.child_spec(
+          {Seeker.DynamicRepo, env_config.db_opts},
+          id: :"seeker_repo_#{slug}_#{env_key}"
+        )
+      end
+
+    children =
+      [SeekerWeb.Telemetry] ++
+        repo_children ++
+        [
+          {DNSCluster, query: Application.get_env(:seeker, :dns_cluster_query) || :ignore},
+          {Phoenix.PubSub, name: Seeker.PubSub},
+          # Must start after PubSub and all repos
+          Seeker.QueryStore,
+          Seeker.ConnectionMonitor,
+          SeekerWeb.Endpoint
+        ]
 
     opts = [strategy: :one_for_one, name: Seeker.Supervisor]
     Supervisor.start_link(children, opts)

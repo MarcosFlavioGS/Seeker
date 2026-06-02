@@ -1,0 +1,23 @@
+{
+  "display": "Acme Corp",
+  "environments": {
+    "prod": {
+      "display": "Production",
+      "hostname": "$ACME_PROD_DB_HOST",
+      "port": "$ACME_PROD_DB_PORT",
+      "username": "$ACME_PROD_DB_USER",
+      "password": "$ACME_PROD_DB_PASS",
+      "database": "$ACME_PROD_DB_NAME",
+      "ssl_mode": "verify_none"
+    },
+    "staging": {
+      "display": "Staging",
+      "hostname": "staging.acme.internal",
+      "port": 5432,
+      "username": "acme_user",
+      "password": "$ACME_STAGING_DB_PASS",
+      "database": "acme_staging",
+      "ssl_mode": "verify_none"
+    }
+  }
+}

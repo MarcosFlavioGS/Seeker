@@ -1,0 +1,14 @@
+[
+  {
+    "context": "General",
+    "key": "list_tables",
+    "name": "List All Tables",
+    "sql": "SELECT table_schema, table_name\nFROM information_schema.tables\nWHERE table_schema NOT IN ('pg_catalog', 'information_schema')\nORDER BY table_schema, table_name"
+  },
+  {
+    "context": "Users",
+    "key": "find_user_by_email",
+    "name": "Find User by Email",
+    "sql": "-- Replace the email value before running.\nSELECT id, name, email, created_at\nFROM users\nWHERE email = 'user@example.com';"
+  }
+]

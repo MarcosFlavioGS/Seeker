@@ -1,7 +1,7 @@
 defmodule SeekerWeb.HomeLive do
   use SeekerWeb, :live_view
 
-  alias Seeker.{ConnectionMonitor, RepoRegistry}
+  alias Seeker.{ConnectionMonitor, OrgRegistry}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -11,7 +11,7 @@ defmodule SeekerWeb.HomeLive do
 
     {:ok,
      socket
-     |> assign(:orgs, RepoRegistry.all())
+     |> assign(:orgs, OrgRegistry.all())
      |> assign(:conn_statuses, build_all_statuses())
      |> assign(:page_title, "Seeker")}
   end
@@ -23,7 +23,7 @@ defmodule SeekerWeb.HomeLive do
   end
 
   defp build_all_statuses do
-    Map.new(RepoRegistry.all_repos(), fn repo -> {repo, ConnectionMonitor.status(repo)} end)
+    Map.new(OrgRegistry.all_repos(), fn repo -> {repo, ConnectionMonitor.status(repo)} end)
   end
 
   @impl true

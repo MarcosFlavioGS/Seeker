@@ -1,34 +1,28 @@
-defmodule Seeker.JustTravel.QueriesTest do
+defmodule Seeker.LocalConfig.QueriesTest do
   use ExUnit.Case, async: true
 
-  alias Seeker.JustTravel.Queries
+  alias Seeker.LocalConfig
 
-  describe "list_queries/0" do
-    test "returns a non-empty list of query descriptors" do
-      queries = Queries.list_queries()
+  @org_slug "just_travel"
+
+  describe "load_queries/1" do
+    test "returns a non-empty list for just_travel" do
+      queries = LocalConfig.load_queries(@org_slug)
       assert is_list(queries)
       assert length(queries) > 0
     end
 
     test "each query has required fields with correct types" do
-      Enum.each(Queries.list_queries(), fn q ->
-        assert is_atom(q.key)
+      Enum.each(LocalConfig.load_queries(@org_slug), fn q ->
+        assert is_binary(q.key) and q.key != ""
         assert is_binary(q.name) and q.name != ""
         assert is_binary(q.sql) and q.sql != ""
+        assert is_binary(q.context) and q.context != ""
       end)
     end
-  end
 
-  describe "get_sql/1" do
-    test "returns sql for known query keys" do
-      for %{key: key} <- Queries.list_queries() do
-        assert {:ok, sql} = Queries.get_sql(key)
-        assert is_binary(sql)
-      end
-    end
-
-    test "returns error for unknown key" do
-      assert {:error, _msg} = Queries.get_sql(:nonexistent_query_xyzzy)
+    test "returns empty list for unknown org" do
+      assert [] = LocalConfig.load_queries("nonexistent_org_xyzzy")
     end
   end
 end

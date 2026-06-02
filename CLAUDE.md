@@ -27,34 +27,37 @@ Seeker is a single-page Phoenix 1.8 LiveView app. The sole route is `/orgs/:org/
 
 **Key layers:**
 
-- **`config/runtime.exs`** — loads all credentials from `.env` via Dotenvy at startup. Shell env vars override `.env` values.
-- **`lib/seeker/organizations/<org>/`** — one directory per organization, containing:
-  - `prod_repo.ex` / `homo_repo.ex` — `Ecto.Repo` modules (pool size 2, no schemas/migrations)
-  - `queries.ex` — aggregates all context modules; exposes `run_sql/2`
-  - `contexts/*.ex` — each file is a context (e.g. `mobility.ex`) returning a list of query maps
-- **`lib/seeker/repo_registry.ex`** — compile-time map from URL-friendly names (atoms) to repo/queries modules. `QueryLive` calls `RepoRegistry.get(org, env)` with `String.to_existing_atom/1` (safe: only succeeds for atoms already defined in the registry).
+- **`config/runtime.exs`** — loads `.env` via Dotenvy so env vars are available at startup. Shell env vars override `.env` values.
+- **`priv/local/`** — gitignored directory. Contains all user-specific data:
+  - `organizations/<slug>.json` — org definition (display name, environments, DB credentials)
+  - `queries/<slug>.json` — all queries for that org (managed via UI or edited directly)
+- **`lib/seeker/local_config.ex`** — reads `priv/local/` at startup. Resolves `"$ENV_VAR"` references in JSON values.
+- **`lib/seeker/org_registry.ex`** — runtime registry built from `LocalConfig` and stored in `:persistent_term`. Replaces the old compile-time `RepoRegistry`. Keys are slug strings (`"just_travel"`).
+- **`lib/seeker/dynamic_repo.ex`** — single `Ecto.Repo` module started multiple times (once per org/env) with unique process names (e.g. `:"seeker_repo_just_travel_prod"`). Uses `put_dynamic_repo/1` for per-call targeting.
+- **`lib/seeker/query_store.ex`** — `GenServer` that holds all queries in memory, persists mutations to the JSON files, and broadcasts `:queries_updated` via PubSub.
+- **`lib/seeker/sql_runner.ex`** — executes raw SQL against a named `DynamicRepo` instance.
 - **`lib/seeker/connection_monitor.ex`** — `GenServer` that pings all repos with `SELECT 1` every 30 seconds, classifies results, and broadcasts on the `"conn_status"` PubSub topic. The LiveView subscribes on mount — no polling.
-- **`lib/seeker_web/live/query_live.ex`** — the single LiveView. SQL runs inside `start_async/3` so slow queries don't block the process; results arrive via `handle_async/3`.
+- **`lib/seeker_web/live/query_live.ex`** — the single LiveView. SQL runs inside `start_async/3` so slow queries don't block the process; results arrive via `handle_async/3`. Includes query CRUD (create/edit/delete via modal form).
 
-**Supervision order matters:** `ConnectionMonitor` must start after PubSub and all repos — it connects to them on `init`.
+**Supervision order:** `QueryStore` and `ConnectionMonitor` must start after PubSub and all repos.
 
 ## Query structure
 
-Each query is a map:
-```elixir
-%{
-  context: "Mobility",              # sidebar section header
-  key: :find_order_by_gateway,      # unique atom across the org
-  name: "1. Find Order by Gateway", # sidebar label
-  sql: "SELECT ..."
+Each query is a JSON object in `priv/local/queries/<slug>.json`:
+```json
+{
+  "context": "Mobility",
+  "key": "find_order_by_gateway",
+  "name": "1. Find Order by Gateway",
+  "sql": "SELECT ..."
 }
 ```
 
-To add a query: add an entry to the relevant context file (e.g. `contexts/mobility.ex`).  
-To add a new context: create `contexts/<name>.ex` and register it in `queries.ex`.  
-See `docs/queries.md` for the full pattern and SQL conventions (placeholders, UPDATE/DELETE prefixes).
+Keys are strings (not atoms). Queries can be created, edited, and deleted via the UI sidebar without restarting.
 
-To add a new organization: follow `docs/adding-organizations.md`.
+To add a query: use the **New** button in the sidebar, or edit the JSON file and restart.  
+To add a new organization: follow `docs/adding-organizations.md`.  
+See `docs/queries.md` for SQL conventions (placeholders, UPDATE/DELETE prefixes).
 
 ## Phoenix/LiveView conventions (project-specific)
 
@@ -80,4 +83,6 @@ Never leave documentation describing behavior that no longer exists.
 
 ## Environment
 
-`.env` is gitignored. Copy `.env.example` to `.env` and fill in credentials before starting. SSL mode is configured via `JUST_TRAVEL_DB_SSL_MODE` (`verify_peer` or `verify_none`). See `docs/configuration.md` for SSL details.
+`.env` is gitignored. Copy `.env.example` to `.env` and fill in credentials before starting.
+
+`priv/local/` is gitignored. Copy `priv/local.example/` as a reference to create your own org and query definitions. See `docs/adding-organizations.md` for the full setup steps. SSL mode is configured per-environment inside the org JSON file. See `docs/configuration.md` for SSL details.

@@ -38,3 +38,7 @@ npm-debug.log
 # Secrets — never commit credentials
 .env
 
+# Local organization and query definitions (user-specific, never committed)
+# Use priv/local.example/ as a reference for the expected file format.
+/priv/local/
+
