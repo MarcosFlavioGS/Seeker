@@ -21,7 +21,10 @@ defmodule Seeker.LocalConfig do
     path = orgs_path()
 
     unless File.dir?(path) do
-      Logger.warning("Seeker: no organizations directory at #{path}. Create #{path}/<slug>.json to add organizations.")
+      Logger.warning(
+        "Seeker: no organizations directory at #{path}. Create #{path}/<slug>.json to add organizations."
+      )
+
       %{}
     else
       path
@@ -32,7 +35,9 @@ defmodule Seeker.LocalConfig do
         org_path = Path.join(path, filename)
 
         case Jason.decode(File.read!(org_path)) do
-          {:ok, raw} -> {slug, parse_org(slug, raw)}
+          {:ok, raw} ->
+            {slug, parse_org(slug, raw)}
+
           {:error, reason} ->
             Logger.error("Seeker: failed to parse #{org_path}: #{inspect(reason)}")
             {slug, nil}

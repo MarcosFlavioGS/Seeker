@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Location-independent wrapper around `mix seeker.*` tasks, so agents (and
+# humans) can run Seeker queries from anywhere on the filesystem.
+#
+# Usage:
+#   seeker orgs
+#   seeker queries --org just_travel
+#   seeker query --org just_travel --env homo --sql "SELECT 1"
+#   seeker query --org just_travel --env prod --key find_order_by_email --param email=a@b.com
+set -euo pipefail
+
+SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
+DIR="$(cd "$(dirname "$SCRIPT")/.." && pwd)"
+
+subcommand="${1:-}"
+if [ -z "$subcommand" ]; then
+  echo "Usage: seeker <orgs|queries|query> [options]" >&2
+  echo "See AGENTS.md for full documentation." >&2
+  exit 1
+fi
+shift
+
+cd "$DIR"
+exec mix "seeker.$subcommand" "$@"

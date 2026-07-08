@@ -17,9 +17,15 @@ just test-failed               # re-run previously failing tests
 just compile                   # compile the project
 just format                    # format code
 just precommit                 # compile (warnings-as-errors), clean unused deps, format, and test — run before committing
+
+mix seeker.orgs                          # list configured orgs/envs as JSON
+mix seeker.queries --org <slug>          # list saved queries for an org as JSON
+mix seeker.query --org <slug> --env <k> (--sql "..." | --key <query_key>)  # run a query, prints JSON
 ```
 
 No local database — there is no `mix ecto.create` or `mix ecto.migrate`. Seeker queries remote PostgreSQL databases; it has no DB of its own.
+
+The `mix seeker.*` tasks (and the `bin/seeker` wrapper, usually symlinked onto `PATH`) let agents run queries without the web UI. See `AGENTS.md` for the full reference — usage, `--allow-write` semantics, output contract.
 
 ## Architecture
 
@@ -38,6 +44,7 @@ Seeker is a single-page Phoenix 1.8 LiveView app. The sole route is `/orgs/:org/
 - **`lib/seeker/sql_runner.ex`** — executes raw SQL against a named `DynamicRepo` instance.
 - **`lib/seeker/connection_monitor.ex`** — `GenServer` that pings all repos with `SELECT 1` every 30 seconds, classifies results, and broadcasts on the `"conn_status"` PubSub topic. The LiveView subscribes on mount — no polling.
 - **`lib/seeker_web/live/query_live.ex`** — the single LiveView. SQL runs inside `start_async/3` so slow queries don't block the process; results arrive via `handle_async/3`. Includes query CRUD (create/edit/delete via modal form).
+- **`lib/seeker/agent_cli.ex`** — shared helpers for the `mix seeker.*` tasks (`lib/mix/tasks/seeker.*.ex`): repo resolution, `:param` substitution, the `--allow-write` guard, JSON-safe row encoding, and JSON output/error formatting.
 
 **Supervision order:** `QueryStore` and `ConnectionMonitor` must start after PubSub and all repos.
 
@@ -78,6 +85,7 @@ When making changes that affect behavior, commands, configuration, architecture,
 - `docs/configuration.md` — SSL, VPN, environment variable details
 - `docs/queries.md` — query structure, SQL conventions, adding queries/contexts
 - `docs/adding-organizations.md` — step-by-step guide for new organizations
+- `AGENTS.md` — how coding agents should run queries via `mix seeker.*` / `seeker`
 
 Never leave documentation describing behavior that no longer exists.
 

@@ -63,6 +63,10 @@ A `GenServer` that pings all registered repos with `SELECT 1` every 30 seconds. 
 
 This means the LiveView never polls — it subscribes on mount and receives push updates.
 
+### 7b. `AgentCLI` and the `mix seeker.*` tasks (`lib/seeker/agent_cli.ex`, `lib/mix/tasks/seeker.*.ex`)
+
+A non-LiveView entry point into the same `OrgRegistry` / `QueryStore` / `SQLRunner` layers, for agents (and humans) that want to run queries from a shell instead of the UI. `mix seeker.orgs` and `mix seeker.queries` expose discovery data as JSON; `mix seeker.query` runs a query and prints a JSON `%QueryResult{}` (or a JSON error on stderr with exit code 1). `AgentCLI` also enforces a `--allow-write` guard — SQL that isn't `SELECT`/`WITH`/`EXPLAIN`/`SHOW` is refused unless the flag is passed — since there's no human in the loop eyeballing the query before it runs. The `bin/seeker` wrapper resolves its own real path and `cd`s into the repo, so it can be symlinked onto `PATH` and invoked from anywhere. See `AGENTS.md` for the user-facing reference.
+
 ### 8. `QueryLive` (`lib/seeker_web/live/query_live.ex`)
 
 The single LiveView that powers the entire UI. Route: `/orgs/:org/:env`.

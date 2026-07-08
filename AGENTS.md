@@ -1,5 +1,87 @@
 This is a web application written using the Phoenix web framework.
 
+## Running Seeker queries as an agent
+
+Seeker is normally a Phoenix LiveView UI for running SQL against org
+databases (see `CLAUDE.md` for the app's architecture). For agent workflows,
+use the `mix seeker.*` tasks instead of the web UI — they print JSON and are
+scriptable. A `seeker` wrapper script (`bin/seeker`) is usually symlinked
+onto `PATH` so you don't need to `cd` into this repo first.
+
+### Quick start
+
+```bash
+# 1. Discover organizations and environments
+seeker orgs
+# [{"slug":"just_travel","display":"Just Travel","environments":[{"key":"prod","display":"Production"},{"key":"homo","display":"Homologation"}]}]
+
+# 2. Discover saved queries for an org
+seeker queries --org just_travel
+# [{"context":"General","key":"table_list","name":"List All Tables","sql":"SELECT ..."}, ...]
+
+# 3a. Run a saved query
+seeker query --org just_travel --env homo --key table_list
+
+# 3b. Run ad-hoc SQL
+seeker query --org just_travel --env homo --sql "SELECT id FROM orders LIMIT 5"
+```
+
+If `seeker` isn't on `PATH`, run the equivalent `mix seeker.orgs` /
+`mix seeker.queries` / `mix seeker.query` tasks from this repo's root
+instead. Both require network access to the target database (VPN if the
+environment needs it — see `docs/configuration.md`).
+
+### `seeker query` / `mix seeker.query` reference
+
+```
+seeker query --org <slug> --env <key> (--sql "<SQL>" | --key <saved_query_key>)
+             [--param name=value ...] [--allow-write] [--format json|table]
+```
+
+- `--org` / `--env` — from `seeker orgs`. Required.
+- `--sql` — raw SQL to execute. Mutually exclusive with `--key`.
+- `--key` — key of a saved query (from `seeker queries --org <slug>`). Mutually exclusive with `--sql`.
+- `--param name=value` — repeatable. Substitutes literal `:name` tokens in the
+  SQL with `value` before running (e.g. a saved query with
+  `WHERE id = :order_id` plus `--param order_id=50033`). This is plain text
+  substitution, not a parameterized/prepared-statement bind — don't pass
+  untrusted input as a param value, and the source SQL itself must already
+  quote-wrap string placeholders (see `docs/queries.md`).
+- `--allow-write` — **required** for any statement that isn't
+  `SELECT` / `WITH` / `EXPLAIN` / `SHOW`. Without it, `INSERT`/`UPDATE`/`DELETE`/DDL
+  are refused before touching the database. There is still no
+  transaction/dry-run safety net once you pass this flag — an allowed write
+  runs immediately, especially dangerous on `prod`. Prefer routing writes
+  through a human via the UI unless a task explicitly asks you to write.
+- `--format` — `json` (default, for machine consumption) or `table` (for a
+  human skimming your output).
+
+**Output contract:**
+- Success → stdout: `{"columns": [...], "rows": [[...], ...], "num_rows": N, "duration_ms": N}`, exit code 0.
+- Failure → stderr: `{"error": "..."}`, exit code 1. Covers unknown org/env,
+  missing `--org`/`--env`, connection failures, and SQL/DB errors — check the
+  exit code, don't try to detect failure from stdout shape.
+
+Row values are JSON-safe: UUID columns (raw 16-byte Postgres binaries) render
+as standard hyphenated UUID strings, other non-UTF8 binary is hex-encoded,
+everything else passes through as-is (numbers, strings, nested JSON/jsonb,
+timestamps).
+
+### Things to know before querying
+
+- **No schema migrations here** — Seeker only reads/writes remote Postgres
+  databases it doesn't own. Don't attempt `mix ecto.migrate` or similar.
+- **`prod` is real production data.** Prefer `homo` (homologation) for
+  exploration, and never pass `--allow-write` against `prod` unless the task
+  explicitly calls for a production write.
+- Saved queries prefixed `[UPDATE]` or `[DELETE]` in their `name` are a human
+  visual-warning convention (see `docs/queries.md`) — they carry no
+  enforcement. `--allow-write` is the actual guard for agents.
+- Query results can be large — add `LIMIT` to ad-hoc `SELECT`s unless you
+  specifically need the full set.
+- A "Cannot reach database" / "VPN" error means the target environment likely
+  needs a VPN connection that isn't currently up — see `docs/configuration.md`.
+
 ## Project guidelines
 
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues

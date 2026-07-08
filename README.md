@@ -155,3 +155,4 @@ See [docs/architecture.md](docs/architecture.md) for a deeper explanation.
 | [docs/configuration.md](docs/configuration.md) | SSL, VPN, and environment variables |
 | [docs/queries.md](docs/queries.md) | How to write and organize queries |
 | [docs/adding-organizations.md](docs/adding-organizations.md) | Step-by-step guide for new organizations |
+| [AGENTS.md](AGENTS.md) | How coding agents can run queries via `mix seeker.*` / `seeker` |
