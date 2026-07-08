@@ -32,6 +32,7 @@ It is designed to be:
 - SSL support (`verify_peer` or `verify_none`)
 - Dark / light / system theme toggle
 - Credentials loaded from `.env` — never committed
+- **Agent-friendly CLI** — `mix seeker.*` tasks (or the `seeker` wrapper) let coding agents discover orgs/queries and run SQL as JSON, no browser needed. See [AGENTS.md](AGENTS.md)
 
 ## Requirements
 
@@ -68,6 +69,19 @@ You can also open an IEx session alongside the server:
 ```bash
 just iex
 ```
+
+## CLI / agent usage
+
+Everything the UI can query is also available from the command line as JSON — no browser required. This is what makes Seeker usable by coding agents, not just humans:
+
+```bash
+mix seeker.orgs                                              # list orgs/environments
+mix seeker.queries --org my_org                               # list saved queries
+mix seeker.query --org my_org --env prod --key find_order_by_email
+mix seeker.query --org my_org --env prod --sql "SELECT id FROM orders LIMIT 5"
+```
+
+Non-`SELECT` statements are refused unless you pass `--allow-write`. See [AGENTS.md](AGENTS.md) for the full reference, including param substitution and the `seeker` wrapper that lets you run these from any directory.
 
 ## Configuration
 
