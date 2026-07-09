@@ -38,8 +38,8 @@ Seeker is a single-page Phoenix 1.8 LiveView app. The sole route is `/orgs/:org/
   - `organizations/<slug>.json` — org definition (display name, environments, DB credentials)
   - `queries/<slug>.json` — all queries for that org (managed via UI or edited directly)
 - **`lib/seeker/local_config.ex`** — reads `priv/local/` at startup. Resolves `"$ENV_VAR"` references in JSON values.
-- **`lib/seeker/org_registry.ex`** — runtime registry built from `LocalConfig` and stored in `:persistent_term`. Replaces the old compile-time `RepoRegistry`. Keys are slug strings (`"just_travel"`).
-- **`lib/seeker/dynamic_repo.ex`** — single `Ecto.Repo` module started multiple times (once per org/env) with unique process names (e.g. `:"seeker_repo_just_travel_prod"`). Uses `put_dynamic_repo/1` for per-call targeting.
+- **`lib/seeker/org_registry.ex`** — runtime registry built from `LocalConfig` and stored in `:persistent_term`. Replaces the old compile-time `RepoRegistry`. Keys are slug strings (`"acme"`).
+- **`lib/seeker/dynamic_repo.ex`** — single `Ecto.Repo` module started multiple times (once per org/env) with unique process names (e.g. `:"seeker_repo_acme_prod"`). Uses `put_dynamic_repo/1` for per-call targeting.
 - **`lib/seeker/query_store.ex`** — `GenServer` that holds all queries in memory, persists mutations to the JSON files, and broadcasts `:queries_updated` via PubSub.
 - **`lib/seeker/sql_runner.ex`** — executes raw SQL against a named `DynamicRepo` instance.
 - **`lib/seeker/connection_monitor.ex`** — `GenServer` that pings all repos with `SELECT 1` every 30 seconds, classifies results, and broadcasts on the `"conn_status"` PubSub topic. The LiveView subscribes on mount — no polling.
@@ -53,9 +53,9 @@ Seeker is a single-page Phoenix 1.8 LiveView app. The sole route is `/orgs/:org/
 Each query is a JSON object in `priv/local/queries/<slug>.json`:
 ```json
 {
-  "context": "Mobility",
-  "key": "find_order_by_gateway",
-  "name": "1. Find Order by Gateway",
+  "context": "Orders",
+  "key": "find_order_by_id",
+  "name": "1. Find Order by ID",
   "sql": "SELECT ..."
 }
 ```

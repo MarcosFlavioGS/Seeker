@@ -7,7 +7,7 @@ Queries live in `priv/local/queries/<org_slug>.json` — a gitignored directory.
 ```json
 [
   {
-    "context": "Mobility",
+    "context": "Orders",
     "key": "find_order_by_email",
     "name": "Find Order by Email",
     "sql": "SELECT * FROM orders WHERE email = 'user@example.com';"
@@ -24,7 +24,7 @@ Queries live in `priv/local/queries/<org_slug>.json` — a gitignored directory.
 
 Open any environment for an organization and click **New** at the top of the sidebar. Fill in:
 
-- **Context** — section header (e.g. "Mobility", "General")
+- **Context** — section header (e.g. "Orders", "General")
 - **Name** — sidebar label
 - **SQL** — the query body
 
@@ -63,7 +63,7 @@ SELECT * FROM orders WHERE id = :order_id;
 Prefix the query name with `[UPDATE]` or `[DELETE]` as a visual warning:
 
 ```
-"name": "13. [UPDATE] Enable Auto-Booking (Contracts)"
+"name": "13. [UPDATE] Deactivate User"
 ```
 
 There is no write protection — any SQL that executes will run. Be careful on Production environments.

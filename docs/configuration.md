@@ -14,24 +14,24 @@ Then open `.env` and fill in your values. Any variable can be referenced from an
 
 ## Variables reference
 
-### Just Travel — Production
+### Acme Corp — Production
 
 ```dotenv
-JUST_TRAVEL_PROD_DB_HOST=your-host.rds.amazonaws.com
-JUST_TRAVEL_PROD_DB_PORT=5432
-JUST_TRAVEL_PROD_DB_USER=your_username
-JUST_TRAVEL_PROD_DB_PASS=your_password
-JUST_TRAVEL_PROD_DB_NAME=your_database_name
+ACME_PROD_DB_HOST=your-host.rds.amazonaws.com
+ACME_PROD_DB_PORT=5432
+ACME_PROD_DB_USER=your_username
+ACME_PROD_DB_PASS=your_password
+ACME_PROD_DB_NAME=your_database_name
 ```
 
-### Just Travel — Homologation
+### Acme Corp — Staging
 
 ```dotenv
-JUST_TRAVEL_HOMO_DB_HOST=your-homo-host.rds.amazonaws.com
-JUST_TRAVEL_HOMO_DB_PORT=5432
-JUST_TRAVEL_HOMO_DB_USER=your_username
-JUST_TRAVEL_HOMO_DB_PASS=your_password
-JUST_TRAVEL_HOMO_DB_NAME=your_homo_database_name
+ACME_STAGING_DB_HOST=your-staging-host.rds.amazonaws.com
+ACME_STAGING_DB_PORT=5432
+ACME_STAGING_DB_USER=your_username
+ACME_STAGING_DB_PASS=your_password
+ACME_STAGING_DB_NAME=your_staging_database_name
 ```
 
 ### SSL
@@ -39,10 +39,10 @@ JUST_TRAVEL_HOMO_DB_NAME=your_homo_database_name
 ```dotenv
 # "verify_peer" — validates the server certificate (recommended for prod)
 # "verify_none" — skips cert validation (use for self-signed or private CA certs)
-JUST_TRAVEL_DB_SSL_MODE=verify_peer
+ACME_DB_SSL_MODE=verify_peer
 
 # Only needed when SSL_MODE=verify_peer
-JUST_TRAVEL_DB_SSL_CACERT=/etc/ssl/certs/ca-certificates.crt
+ACME_DB_SSL_CACERT=/etc/ssl/certs/ca-certificates.crt
 ```
 
 ## Organization files (`priv/local/organizations/`)
@@ -144,7 +144,7 @@ Query files (`priv/local/queries/*.json`) **do not** require a restart — chang
 Dotenvy loads sources in order: `.env` first, then actual shell environment variables. Shell variables always win. This means you can temporarily override a value without editing the file:
 
 ```bash
-JUST_TRAVEL_DB_SSL_MODE=verify_none just run
+ACME_DB_SSL_MODE=verify_none just run
 ```
 
 ## Port

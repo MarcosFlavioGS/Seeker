@@ -18,7 +18,7 @@ Seeker is a lightweight web app that replaces tools like BeeKeeper Studio for da
 It is designed to be:
 
 - **Personal** — runs on `localhost`, not deployed anywhere
-- **Organized** — queries are grouped by organization and context (e.g. Mobility, Insurances)
+- **Organized** — queries are grouped by organization and context (e.g. Users, Orders)
 - **Git-friendly** — organizations and queries live in a gitignored local directory, so each user keeps their own setup without polluting shared history
 
 ## Features
@@ -91,14 +91,14 @@ All database credentials live in `.env` at the project root. The file is gitigno
 
 | Variable | Description |
 |---|---|
-| `JUST_TRAVEL_PROD_DB_HOST` | Production database hostname |
-| `JUST_TRAVEL_PROD_DB_PORT` | Port (default `5432`) |
-| `JUST_TRAVEL_PROD_DB_USER` | Username |
-| `JUST_TRAVEL_PROD_DB_PASS` | Password |
-| `JUST_TRAVEL_PROD_DB_NAME` | Database name |
-| `JUST_TRAVEL_HOMO_DB_*` | Same fields for Homologation |
-| `JUST_TRAVEL_DB_SSL_MODE` | `verify_peer` or `verify_none` |
-| `JUST_TRAVEL_DB_SSL_CACERT` | Path to CA bundle (only for `verify_peer`) |
+| `ACME_PROD_DB_HOST` | Production database hostname |
+| `ACME_PROD_DB_PORT` | Port (default `5432`) |
+| `ACME_PROD_DB_USER` | Username |
+| `ACME_PROD_DB_PASS` | Password |
+| `ACME_PROD_DB_NAME` | Database name |
+| `ACME_STAGING_DB_*` | Same fields for Staging |
+| `ACME_DB_SSL_MODE` | `verify_peer` or `verify_none` |
+| `ACME_DB_SSL_CACERT` | Path to CA bundle (only for `verify_peer`) |
 
 Add variables for any other organizations you add. See [docs/configuration.md](docs/configuration.md) for SSL details.
 
@@ -135,9 +135,9 @@ Queries are stored in `priv/local/queries/<org_slug>.json` — also gitignored. 
 priv/
   local/                        ← gitignored — your personal data
     organizations/
-      just_travel.json          ← org definition (DB credentials via $ENV_VARs)
+      acme.json                 ← org definition (DB credentials via $ENV_VARs)
     queries/
-      just_travel.json          ← all queries for that org
+      acme.json                 ← all queries for that org
   local.example/                ← committed — format reference
     organizations/acme.json
     queries/acme.json

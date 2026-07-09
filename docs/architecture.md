@@ -32,15 +32,15 @@ Pure functions that read and write `priv/local/`. Called once at application sta
 
 ### 3. `OrgRegistry` (`lib/seeker/org_registry.ex`)
 
-A thin wrapper around `:persistent_term`. Called once during `Application.start/2` with the map from `LocalConfig.load_orgs/0`, then read-only for the rest of the app's life. Keys are slug strings (e.g. `"just_travel"`); repo names are atoms (e.g. `:"seeker_repo_just_travel_prod"`).
+A thin wrapper around `:persistent_term`. Called once during `Application.start/2` with the map from `LocalConfig.load_orgs/0`, then read-only for the rest of the app's life. Keys are slug strings (e.g. `"acme"`); repo names are atoms (e.g. `:"seeker_repo_acme_prod"`).
 
 ### 4. `DynamicRepo` (`lib/seeker/dynamic_repo.ex`)
 
 A single `Ecto.Repo` module started once per org/env combination with a unique process name:
 
 ```
-Seeker.DynamicRepo (name: :"seeker_repo_just_travel_prod", hostname: "...", ...)
-Seeker.DynamicRepo (name: :"seeker_repo_just_travel_homo", hostname: "...", ...)
+Seeker.DynamicRepo (name: :"seeker_repo_acme_prod", hostname: "...", ...)
+Seeker.DynamicRepo (name: :"seeker_repo_acme_staging", hostname: "...", ...)
 ```
 
 All repo instances share one module (for adapter metadata) but run as separate processes with separate DBConnection pools. To target a specific instance, call `DynamicRepo.put_dynamic_repo(repo_name)` before querying — this sets process-local state that Ecto reads for the next call. Each query runs in its own process (via `start_async/3` or `spawn_monitor`), so concurrent queries never interfere.
@@ -88,8 +88,8 @@ A modal form in the sidebar lets users create, edit, and delete queries. Events 
 ```
 Seeker.Supervisor (one_for_one)
   ├── SeekerWeb.Telemetry
-  ├── Seeker.DynamicRepo (name: :seeker_repo_just_travel_prod)
-  ├── Seeker.DynamicRepo (name: :seeker_repo_just_travel_homo)
+  ├── Seeker.DynamicRepo (name: :seeker_repo_acme_prod)
+  ├── Seeker.DynamicRepo (name: :seeker_repo_acme_staging)
   ├── ... (one entry per org/env loaded from priv/local/)
   ├── DNSCluster
   ├── Phoenix.PubSub

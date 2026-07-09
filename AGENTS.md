@@ -13,17 +13,17 @@ onto `PATH` so you don't need to `cd` into this repo first.
 ```bash
 # 1. Discover organizations and environments
 seeker orgs
-# [{"slug":"just_travel","display":"Just Travel","environments":[{"key":"prod","display":"Production"},{"key":"homo","display":"Homologation"}]}]
+# [{"slug":"acme","display":"Acme Corp","environments":[{"key":"prod","display":"Production"},{"key":"staging","display":"Staging"}]}]
 
 # 2. Discover saved queries for an org
-seeker queries --org just_travel
+seeker queries --org acme
 # [{"context":"General","key":"table_list","name":"List All Tables","sql":"SELECT ..."}, ...]
 
 # 3a. Run a saved query
-seeker query --org just_travel --env homo --key table_list
+seeker query --org acme --env staging --key table_list
 
 # 3b. Run ad-hoc SQL
-seeker query --org just_travel --env homo --sql "SELECT id FROM orders LIMIT 5"
+seeker query --org acme --env staging --sql "SELECT id FROM orders LIMIT 5"
 ```
 
 If `seeker` isn't on `PATH`, run the equivalent `mix seeker.orgs` /
@@ -71,9 +71,9 @@ timestamps).
 
 - **No schema migrations here** — Seeker only reads/writes remote Postgres
   databases it doesn't own. Don't attempt `mix ecto.migrate` or similar.
-- **`prod` is real production data.** Prefer `homo` (homologation) for
-  exploration, and never pass `--allow-write` against `prod` unless the task
-  explicitly calls for a production write.
+- **`prod` is real production data.** Prefer a non-production environment (e.g.
+  `staging`) for exploration, and never pass `--allow-write` against `prod`
+  unless the task explicitly calls for a production write.
 - Saved queries prefixed `[UPDATE]` or `[DELETE]` in their `name` are a human
   visual-warning convention (see `docs/queries.md`) — they carry no
   enforcement. `--allow-write` is the actual guard for agents.
